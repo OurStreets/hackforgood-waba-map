@@ -20,14 +20,14 @@ function fetch(locality) {
             encoding: null
         }, function (error, response, body) {
             if (!error && response.statusCode === 200) {
-                fs.writeFileSync(path.resolve('bikelanes', 'temp.zip'), body);
+                fs.writeFileSync(path.resolve('temp', 'temp.zip'), body);
                 console.log('Converting Shapefile to GeoJson for ' + locality.name);
-                var formData = { upload: fs.createReadStream(path.resolve('bikelanes', 'temp.zip')), targetSrs: 'EPSG:4326' };
+                var formData = { upload: fs.createReadStream(path.resolve('temp', 'temp.zip')), targetSrs: 'EPSG:4326' };
                 request.post({
                     url: 'http://ogre.adc4gis.com/convert',
                     formData: formData
                 }, function (error, response, body) {
-                    fs.unlinkSync(path.resolve('bikelanes', 'temp.zip'));
+                    fs.unlinkSync(path.resolve('temp', 'temp.zip'));
                     if (!error && response.statusCode === 200) {
                         mapFilterSave(JSON.parse(body), locality);
                     } else {
@@ -37,7 +37,7 @@ function fetch(locality) {
             } else {
                 console.log('ERROR: ' + error);
             }
-        })        
+        })
     }
     else {
         request({
@@ -51,7 +51,7 @@ function fetch(locality) {
             }
         })
     }
-    
+
 }
 
 function mapFilterSave(geoJson, locality) {
@@ -60,13 +60,17 @@ function mapFilterSave(geoJson, locality) {
     console.log('# of raw features: ' + geoJson.features.length);
     var mappedGeoJson = locality.mappingFunction(geoJson);
 
+    console.log('writing mapped file for ' + locality.name);
+    fs.writeFileSync(path.resolve('mappedfacilities', locality.filename), JSON.stringify(mappedGeoJson));
+
+
     //filter it so we don't have sharrows and wide shoulders and other things WABA doesn't consider infrastructure
     console.log('filtering mapped file for ' + locality.name);
     mappedGeoJson.features = mappedGeoJson.features.filter(isRealBikeFacility);
 
     console.log('writing finalized file to disk for ' + locality.name);
     //write to disk
-    fs.writeFileSync(path.resolve('bikelanes', locality.filename), JSON.stringify(mappedGeoJson));
+    fs.writeFileSync(path.resolve('filteredfacilities', locality.filename), JSON.stringify(mappedGeoJson));
     locality.done = true;
     if (locality.onDone) locality.onDone();
 }
@@ -102,18 +106,23 @@ function arlingtonMap(rawGeoJson) {
     //convert OBJECTID to objectid
     //convert Label to name
     //convert Route_Type = 'Off Street Trail' to wabaclassification = 'Paved Trail'
-    //convert Route_Type = 'Marked Route' to wabaclassification = 'Bike Lane'
+    //convert Route_Type = 'Bicycle Lane' to wabaclassification = 'Bike Lane'
     //convert Route_Type = 'Sharrow' to wabaclassification = 'Sharrows'
-    //convert Route_Type = 'Suggested Route' to wabaclassification = 'Signed Route'
+    //convert Route_Type = 'Recommended Route' to wabaclassification = 'Signed Route'
+    //convert Route_Type = 'Protected Bike Lane' to wabaclassification = 'Separated Bike Lane'
+    //convert Route_Type = 'Buffered Bike Lane' to wabaclassification = 'Buffered Bike Lane'
 
     var geojson = { type: 'FeatureCollection', features: [] };
     for (var i = 0; i < rawGeoJson.features.length; i++) {
         var rawFeature = rawGeoJson.features[i];
         var mappedFeature = { type: 'Feature', properties: { objectid: rawFeature.properties.OBJECTID, name: rawFeature.properties.Label }, geometry: rawFeature.geometry };
         if (rawFeature.properties.Route_Type == 'Off Street Trail') mappedFeature.properties.wabaclassification = 'Paved Trail';
-        if (rawFeature.properties.Route_Type == 'Marked Route') mappedFeature.properties.wabaclassification = 'Bike Lane';
+        if (rawFeature.properties.Route_Type == 'Bicycle Lane') mappedFeature.properties.wabaclassification = 'Bike Lane';
         if (rawFeature.properties.Route_Type == 'Sharrow') mappedFeature.properties.wabaclassification = 'Sharrows';
-        if (rawFeature.properties.Route_Type == 'Suggested Route') mappedFeature.properties.wabaclassification = 'Signed Route';
+        if (rawFeature.properties.Route_Type == 'Recommended Route') mappedFeature.properties.wabaclassification = 'Signed Route';
+        if (rawFeature.properties.Route_Type == 'Protected Bike Lane') mappedFeature.properties.wabaclassification = 'Separated Bike Lane';
+		if (rawFeature.properties.Route_Type == 'Buffered Bike Lane') mappedFeature.properties.wabaclassification = 'Buffered Bike Lane';
+
 
         geojson.features.push(mappedFeature);
     }
@@ -276,36 +285,57 @@ function fairfaxNonCountyTrailsMap(rawGeoJson) {
 }
 
 function isRealBikeFacility(value) {
-    return (value.properties.wabaclassification == 'Paved Trail' || value.properties.wabaclassification == 'Bike Lane' || value.properties.wabaclassification == 'Separated Bike Lane');
+    return (value.properties.wabaclassification == 'Paved Trail' || value.properties.wabaclassification == 'Bike Lane' || value.properties.wabaclassification == 'Buffered Bike Lane' || value.properties.wabaclassification == 'Separated Bike Lane');
 }
 
 function combineDC() {
     if (dcLanes.done && dcTrails.done) {
-        console.log('Combining DC Trails geojson with DC Lanes geojson');
-        var lanes = JSON.parse(fs.readFileSync(path.resolve('bikelanes', dcLanes.filename), 'utf8'));
-        var trails = JSON.parse(fs.readFileSync(path.resolve('bikelanes', dcTrails.filename), 'utf8'));
+        console.log('Combining mapped DC Trails geojson with DC Lanes geojson');
+        var lanes = JSON.parse(fs.readFileSync(path.resolve('mappedfacilities', dcLanes.filename), 'utf8'));
+        var trails = JSON.parse(fs.readFileSync(path.resolve('mappedfacilities', dcTrails.filename), 'utf8'));
         lanes.features = lanes.features.concat(trails.features);
 
-        fs.writeFileSync(path.resolve('bikelanes', 'DC_Washington.geojson'), JSON.stringify(lanes));
-        fs.unlinkSync(path.resolve('bikelanes', dcLanes.filename));
-        fs.unlinkSync(path.resolve('bikelanes', dcTrails.filename));
+        fs.writeFileSync(path.resolve('mappedfacilities', 'DC_Washington.geojson'), JSON.stringify(lanes));
+        fs.unlinkSync(path.resolve('mappedfacilities', dcLanes.filename));
+        fs.unlinkSync(path.resolve('mappedfacilities', dcTrails.filename));
+
+        console.log('Combining filtered DC Trails geojson with DC Lanes geojson');
+		var lanes = JSON.parse(fs.readFileSync(path.resolve('filteredfacilities', dcLanes.filename), 'utf8'));
+		var trails = JSON.parse(fs.readFileSync(path.resolve('filteredfacilities', dcTrails.filename), 'utf8'));
+		lanes.features = lanes.features.concat(trails.features);
+
+		fs.writeFileSync(path.resolve('filteredfacilities', 'DC_Washington.geojson'), JSON.stringify(lanes));
+		fs.unlinkSync(path.resolve('filteredfacilities', dcLanes.filename));
+        fs.unlinkSync(path.resolve('filteredfacilities', dcTrails.filename));
     }
-    
+
 }
 
 function combineFairfax() {
     if (fairfaxLanes.done && fairfaxCountyTrails.done && fairfaxNonCountyTrails.done) {
-        console.log('Combining Fairfax County Lanes, County Trails and Non-County Trails geojson');
-        var lanes = JSON.parse(fs.readFileSync(path.resolve('bikelanes', fairfaxLanes.filename), 'utf8'));
-        var countyTrails = JSON.parse(fs.readFileSync(path.resolve('bikelanes', fairfaxCountyTrails.filename), 'utf8'));
-        var nonCountyTrails = JSON.parse(fs.readFileSync(path.resolve('bikelanes', fairfaxNonCountyTrails.filename), 'utf8'));
+        console.log('Combining mapped Fairfax County Lanes, County Trails and Non-County Trails geojson');
+        var lanes = JSON.parse(fs.readFileSync(path.resolve('mappedfacilities', fairfaxLanes.filename), 'utf8'));
+        var countyTrails = JSON.parse(fs.readFileSync(path.resolve('mappedfacilities', fairfaxCountyTrails.filename), 'utf8'));
+        var nonCountyTrails = JSON.parse(fs.readFileSync(path.resolve('mappedfacilities', fairfaxNonCountyTrails.filename), 'utf8'));
         lanes.features = lanes.features.concat(countyTrails.features);
         lanes.features = lanes.features.concat(nonCountyTrails.features);
 
-        fs.writeFileSync(path.resolve('bikelanes', 'VA_Fairfax.geojson'), JSON.stringify(lanes));
-        fs.unlinkSync(path.resolve('bikelanes', fairfaxLanes.filename));
-        fs.unlinkSync(path.resolve('bikelanes', fairfaxCountyTrails.filename));
-        fs.unlinkSync(path.resolve('bikelanes', fairfaxNonCountyTrails.filename));
+        fs.writeFileSync(path.resolve('mappedfacilities', 'VA_Fairfax.geojson'), JSON.stringify(lanes));
+        fs.unlinkSync(path.resolve('mappedfacilities', fairfaxLanes.filename));
+        fs.unlinkSync(path.resolve('mappedfacilities', fairfaxCountyTrails.filename));
+        fs.unlinkSync(path.resolve('mappedfacilities', fairfaxNonCountyTrails.filename));
+
+        console.log('Combining filtered Fairfax County Lanes, County Trails and Non-County Trails geojson');
+		var lanes = JSON.parse(fs.readFileSync(path.resolve('filteredfacilities', fairfaxLanes.filename), 'utf8'));
+		var countyTrails = JSON.parse(fs.readFileSync(path.resolve('filteredfacilities', fairfaxCountyTrails.filename), 'utf8'));
+		var nonCountyTrails = JSON.parse(fs.readFileSync(path.resolve('filteredfacilities', fairfaxNonCountyTrails.filename), 'utf8'));
+		lanes.features = lanes.features.concat(countyTrails.features);
+		lanes.features = lanes.features.concat(nonCountyTrails.features);
+
+		fs.writeFileSync(path.resolve('filteredfacilities', 'VA_Fairfax.geojson'), JSON.stringify(lanes));
+		fs.unlinkSync(path.resolve('filteredfacilities', fairfaxLanes.filename));
+		fs.unlinkSync(path.resolve('filteredfacilities', fairfaxCountyTrails.filename));
+        fs.unlinkSync(path.resolve('filteredfacilities', fairfaxNonCountyTrails.filename));
     }
 
 }
