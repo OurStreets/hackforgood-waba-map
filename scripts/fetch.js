@@ -8,7 +8,8 @@ var alexandria = { name: 'Alexandria, VA', url: 'http://data.alexgis.opendata.ar
 var dcLanes = { name: 'Washington, DC Bike Lanes', url: 'http://opendata.dc.gov/datasets/294e062cdf2c48d5b9cbc374d9709bc0_2.geojson', type: 'geojson', filename: 'DC_Washington_BikeLanes.geojson', mappingFunction: dcLanesMap, done: false, onDone: combineDC };
 var dcTrails = { name: 'Washington, DC Trails', url: 'http://opendata.dc.gov/datasets/e8c2b7ef54fb43d9a2ed1b0b75d0a14d_4.geojson', type: 'geojson', filename: 'DC_Washington_Trails.geojson', mappingFunction: dcTrailsMap, done: false, onDone: combineDC };
 var princeGeorges = { name: 'Prince George\'s County, MD', url: 'http://gisdata.pgplanning.org/opendata/downloadzip.asp?FileName=/data/ShapeFile/Master_Plan_Trail_Ln.zip', type: 'shapefile', filename: 'MD_PrinceGeorgesCounty.geojson', mappingFunction: pgMap, done: false };
-var fairfaxLanes = { name: 'Fairfax County, VA Bike Lanes', url: 'http://data.fairfaxcountygis.opendata.arcgis.com/datasets/0dacd6f1e697469a81d6f7292a78d30e_16.geojson', type: 'geojson', filename: 'VA_Fairfax_BikeLanes.geojson', mappingFunction: fairfaxLanesMap, done: false, onDone: combineFairfax };
+//var fairfaxLanes = { name: 'Fairfax County, VA Bike Lanes', url: 'http://data.fairfaxcountygis.opendata.arcgis.com/datasets/0dacd6f1e697469a81d6f7292a78d30e_16.geojson', type: 'geojson', filename: 'VA_Fairfax_BikeLanes.geojson', mappingFunction: fairfaxLanesMap, done: false, onDone: combineFairfax };
+var fairfaxLanes = { name: 'Fairfax County, VA Bike Lanes', url: 'http://dcbikemap.com/data/Fairfax_Bike_Infrastructure.zip', type: 'shapefile', filename: 'VA_Fairfax_BikeLanes.geojson', mappingFunction: fairfaxLanesMap, done: false, onDone: combineFairfax };
 var fairfaxCountyTrails = { name: 'Fairfax County, VA County Trails', url: 'http://data.fairfaxcountygis.opendata.arcgis.com/datasets/8a08319c7cb449b9a9329709f8dfdb30_3.geojson', type: 'geojson', filename: 'VA_Fairfax_CountyTrails.geojson', mappingFunction: fairfaxCountyTrailsMap, done: false, onDone: combineFairfax };
 var fairfaxNonCountyTrails = { name: 'Fairfax County, VA Non-County Trails', url: 'http://data.fairfaxcountygis.opendata.arcgis.com/datasets/ffa1a86b009c4528899c7e0ae50b5e5b_4.geojson', type: 'geojson', filename: 'VA_Fairfax_NonCountyTrails.geojson', mappingFunction: fairfaxNonCountyTrailsMap, done: false, onDone: combineFairfax };
 
@@ -55,6 +56,9 @@ function fetch(locality) {
 }
 
 function mapFilterSave(geoJson, locality) {
+	//save raw files
+	fs.writeFileSync(path.resolve('rawfacilities', locality.filename), JSON.stringify(geoJson));
+
     //each locality has their own labeling & categorizing system.  Normalize them.
     console.log('mapping raw file for ' + locality.name);
     console.log('# of raw features: ' + geoJson.features.length);
@@ -231,10 +235,13 @@ function fairfaxLanesMap(rawGeoJson) {
     var geojson = { type: 'FeatureCollection', features: [] };
     for (var i = 0; i < rawGeoJson.features.length; i++) {
         var rawFeature = rawGeoJson.features[i];
-        var mappedFeature = { type: 'Feature', properties: { objectid: rawFeature.properties.OBJECTID, name: rawFeature.properties.LABEL }, geometry: rawFeature.geometry };
-        if (rawFeature.properties.STATUS == 'Bike Lane') mappedFeature.properties.wabaclassification = 'Bike Lane';
-        if (rawFeature.properties.STATUS == 'Corridor Caution') mappedFeature.properties.wabaclassification = 'Death Trap';
-        if (rawFeature.properties.STATUS == 'Preferred') mappedFeature.properties.wabaclassification = 'Signed Route';
+        var mappedFeature = { type: 'Feature', properties: { objectid: rawFeature.properties.Name, name: rawFeature.properties.Name }, geometry: rawFeature.geometry };
+        if (rawFeature.properties.Type == 'Bike Lane') mappedFeature.properties.wabaclassification = 'Bike Lane';
+        if (rawFeature.properties.Type == 'Buffered Bike Lane') mappedFeature.properties.wabaclassification = 'Buffered Bike Lane';
+        if (rawFeature.properties.Type == 'Climbing Lane') mappedFeature.properties.wabaclassification = 'Bike Lane';
+        if (rawFeature.properties.Type == 'Sharrow') mappedFeature.properties.wabaclassification = 'Sharrows';
+        if (rawFeature.properties.Type == 'Sharrows') mappedFeature.properties.wabaclassification = 'Sharrows';
+        if (rawFeature.properties.Type == 'Sharrowsq') mappedFeature.properties.wabaclassification = 'Sharrows';
 
         geojson.features.push(mappedFeature);
     }
