@@ -1,4 +1,4 @@
-﻿var fs = require('fs');
+var fs = require('fs');
 var path = require('path');
 var request = require('request');
 
@@ -20,14 +20,14 @@ function fetch(locality) {
             encoding: null
         }, function (error, response, body) {
             if (!error && response.statusCode === 200) {
-                fs.writeFileSync(path.resolve('temp', 'temp.zip'), body);
+                fs.writeFileSync(path.resolve('working', 'temp.zip'), body);
                 console.log('Converting Shapefile to GeoJson for ' + locality.name);
-                var formData = { upload: fs.createReadStream(path.resolve('temp', 'temp.zip')), targetSrs: 'EPSG:4326' };
+                var formData = { upload: fs.createReadStream(path.resolve('working', 'temp.zip')), targetSrs: 'EPSG:4326' };
                 request.post({
                     url: 'http://ogre.adc4gis.com/convert',
                     formData: formData
                 }, function (error, response, body) {
-                    fs.unlinkSync(path.resolve('temp', 'temp.zip'));
+                    fs.unlinkSync(path.resolve('working', 'temp.zip'));
                     if (!error && response.statusCode === 200) {
                         mapFilterSave(JSON.parse(body), locality);
                     } else {
