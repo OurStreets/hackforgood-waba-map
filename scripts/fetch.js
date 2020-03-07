@@ -187,12 +187,23 @@ function dcTrailsMap(rawGeoJson) {
     //convert OBJECTID to objectid
     //convert NAME to name
     //set all to wabaclassification = 'Paved Trail'
+    //except for
+    // * ft circle trail - unpaved
+    // * C&O Canal Towpath - unpaved
+    // * Kingman Island Trail - unpaved. not even sure bikes are allowed
+    // * Texas Ave - that's not even Tx Ave, it's Ft Davis Dr, and it has no bike facilities
 
     var geojson = { type: 'FeatureCollection', features: [] };
     for (var i = 0; i < rawGeoJson.features.length; i++) {
         var rawFeature = rawGeoJson.features[i];
         var mappedFeature = { type: 'Feature', properties: { objectid: rawFeature.properties.OBJECTID, name: rawFeature.properties.NAME }, geometry: rawFeature.geometry };
-        mappedFeature.properties.wabaclassification = 'Paved Trail';
+        console.log(mappedFeature.properties.name)
+        console.log('WTF', mappedFeature.properties.name == 'Ft. Circle Trail')
+        if (mappedFeature.properties.name == 'Ft. Circle Trail') mappedFeature.properties.wabaclassification = 'Unpaved Trail';
+        else if (mappedFeature.properties.name == 'Kingman Island Trail') mappedFeature.properties.wabaclassification = 'Unpaved Trail';
+        else if (mappedFeature.properties.name == 'C&O Canal Towpath') mappedFeature.properties.wabaclassification = 'Unpaved Trail';
+        else if (mappedFeature.properties.name == 'Texas Ave') mappedFeature.properties.wabaclassification = null;
+        else mappedFeature.properties.wabaclassification = 'Paved Trail';
 
         geojson.features.push(mappedFeature);
     }
