@@ -11,7 +11,7 @@ function combine(directory) {
 	  files.forEach( function (file) {
 	    console.log(directory+'\\'+file);
 	    var temp = JSON.parse(fs.readFileSync(path.resolve(directory,file)));
-	    combined.features.push(temp.features);
+	    Array.prototype.push.apply(combined.features,temp.features);
 	  });
 	  fs.writeFileSync(path.resolve(directory, 'all.geojson'), JSON.stringify(combined));
 });
