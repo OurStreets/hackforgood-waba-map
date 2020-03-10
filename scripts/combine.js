@@ -1,26 +1,27 @@
 var fs = require('fs');
 var path = require('path');
 var request = require('request');
-var merger = require('@mapbox/geojson-merge');
 
-var myfiles = [];
+function combine(directory) {
+	var combined = { type: 'FeatureCollection', features: [] };
 
-fs.readdir('mappedfacilities', function (err, files) { if (err) throw err;
-  files.forEach( function (file) {
-    myfiles.push(path.resolve('mappedfacilities', file));
-    console.log(file);
-  });
-  var mergedStream = merger.mergeFeatureCollectionStream(myfiles);
-  var mergedFile = fs.createWriteStream(path.resolve('mappedfacilities', 'all.geojson'));
-  mergedStream.pipe(mergedFile);
+	if (fs.existsSync(path.resolve(directory, 'all.geojson'))) fs.unlinkSync(path.resolve(directory, 'all.geojson'));
+
+	fs.readdir(directory, function (err, files) { if (err) throw err;
+	  files.forEach( function (file) {
+	    console.log(directory+'\\'+file);
+	    var temp = JSON.parse(fs.readFileSync(path.resolve(directory,file)));
+	    Array.prototype.push.apply(combined.features,temp.features);
+	  });
+	  fs.writeFileSync(path.resolve(directory, 'all.geojson'), JSON.stringify(combined));
 });
+}
 
-fs.readdir('filteredfacilities', function (err, files) { if (err) throw err;
-  files.forEach( function (file) {
-    myfiles.push(path.resolve('filteredfacilities', file));
-    console.log(file);
-  });
-  var mergedStream = merger.mergeFeatureCollectionStream(myfiles);
-  var mergedFile = fs.createWriteStream(path.resolve('filteredfacilities', 'all.geojson'));
-  mergedStream.pipe(mergedFile);
-});
+combine('mappedfacilities');
+combine('filteredfacilities');
+combine('rawfacilities');
+
+
+
+
+

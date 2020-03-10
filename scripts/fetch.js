@@ -3,7 +3,7 @@ var path = require('path');
 var request = require('request');
 
 var montgomery = { name: 'Montgomery County, MD', url: 'https://data.montgomerycountymd.gov/api/geospatial/icc2-ppee?method=export&format=GeoJSON', type: 'geojson', filename: 'MD_MontgomeryCounty.geojson', mappingFunction: mocoMap, done: false };
-var arlington = { name: 'Arlington County, VA', url: 'http://gisdata.arlgis.opendata.arcgis.com/datasets/af497e2747104622ac74f4457b3fb73f_4.geojson', type: 'geojson', filename: 'VA_Arlington.geojson', mappingFunction: arlingtonMap, done: false };
+var arlington = { name: 'Arlington County, VA', url: 'https://opendata.arcgis.com/datasets/3e76860e343a4462b2d724e4458c5b1d_0.geojson', type: 'geojson', filename: 'VA_Arlington.geojson', mappingFunction: arlingtonMap, done: false };
 var alexandria = { name: 'Alexandria, VA', url: 'http://data.alexgis.opendata.arcgis.com/datasets/685dfe61f1aa477f8cbd21dceb5ba9b5_0.geojson', type: 'geojson', filename: 'VA_Alexandria.geojson', mappingFunction: alexandriaMap, done: false };
 var dcLanes = { name: 'Washington, DC Bike Lanes', url: 'http://opendata.dc.gov/datasets/294e062cdf2c48d5b9cbc374d9709bc0_2.geojson', type: 'geojson', filename: 'DC_Washington_BikeLanes.geojson', mappingFunction: dcLanesMap, done: false, onDone: combineDC };
 var dcTrails = { name: 'Washington, DC Trails', url: 'http://opendata.dc.gov/datasets/e8c2b7ef54fb43d9a2ed1b0b75d0a14d_4.geojson', type: 'geojson', filename: 'DC_Washington_Trails.geojson', mappingFunction: dcTrailsMap, done: false, onDone: combineDC };
@@ -21,14 +21,14 @@ function fetch(locality) {
             encoding: null
         }, function (error, response, body) {
             if (!error && response.statusCode === 200) {
-                fs.writeFileSync(path.resolve('working', 'temp.zip'), body);
+                fs.writeFileSync(path.resolve('working', locality.filename + '.zip'), body);
                 console.log('Converting Shapefile to GeoJson for ' + locality.name);
-                var formData = { upload: fs.createReadStream(path.resolve('working', 'temp.zip')), targetSrs: 'EPSG:4326' };
+                var formData = { upload: fs.createReadStream(path.resolve('working', locality.filename + '.zip')), targetSrs: 'EPSG:4326' };
                 request.post({
                     url: 'http://ogre.adc4gis.com/convert',
                     formData: formData
                 }, function (error, response, body) {
-                    fs.unlinkSync(path.resolve('working', 'temp.zip'));
+                    fs.unlinkSync(path.resolve('working', locality.filename + '.zip'));
                     if (!error && response.statusCode === 200) {
                         mapFilterSave(JSON.parse(body), locality);
                     } else {
@@ -197,8 +197,7 @@ function dcTrailsMap(rawGeoJson) {
     for (var i = 0; i < rawGeoJson.features.length; i++) {
         var rawFeature = rawGeoJson.features[i];
         var mappedFeature = { type: 'Feature', properties: { objectid: rawFeature.properties.OBJECTID, name: rawFeature.properties.NAME }, geometry: rawFeature.geometry };
-        console.log(mappedFeature.properties.name)
-        console.log('WTF', mappedFeature.properties.name == 'Ft. Circle Trail')
+
         if (mappedFeature.properties.name == 'Ft. Circle Trail') mappedFeature.properties.wabaclassification = 'Unpaved Trail';
         else if (mappedFeature.properties.name == 'Kingman Island Trail') mappedFeature.properties.wabaclassification = 'Unpaved Trail';
         else if (mappedFeature.properties.name == 'C&O Canal Towpath') mappedFeature.properties.wabaclassification = 'Unpaved Trail';
