@@ -302,7 +302,7 @@ function fairfaxNonCountyTrailsMap(rawGeoJson) {
 }
 
 function isRealBikeFacility(value) {
-    return (value.properties.wabaclassification == 'Paved Trail' || value.properties.wabaclassification == 'Bike Lane' || value.properties.wabaclassification == 'Buffered Bike Lane' || value.properties.wabaclassification == 'Separated Bike Lane');
+    return (value.properties.wabaclassification == 'Bike Lane' || value.properties.wabaclassification == 'Buffered Bike Lane' || value.properties.wabaclassification == 'Separated Bike Lane');
 }
 
 function combineDC() {
